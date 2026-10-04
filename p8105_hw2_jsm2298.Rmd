@@ -1,0 +1,7 @@
+---
+title: "HW 02 - jsm2298"
+output: github_document
+date: "2026-10-04"
+---
+
+# Load Packages
