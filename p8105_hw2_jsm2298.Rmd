@@ -8,6 +8,7 @@ date: "2026-10-04"
 ```{r}
 library(tidyverse)
 library(dplyr)
+library(readxl)
 ```
 
 
@@ -31,7 +32,7 @@ nyc_t_df <- read_csv("data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv") |>
                values_transform = list(route_name = as.character))
 ```
 ## Write a short paragraph about this dataset – explain briefly what variables the dataset contains, describe your data cleaning steps so far, and give the dimension (rows x columns) of the resulting dataset. Are these data tidy?
-The dataset contains information about nyc subway lines. Specifically, one row of the original data set corresponds to one exit in a given station. The line and station name correspond to the specific station on a given line. The route# columns show which trains travel to a given station. The latitude and longitude columns show the specific location of each exit / entrance. We also have other variables such as entrance type and entry yes vs no, which give details about entrance to each station. I did a lot of cleaning with the data to remove unnecessary columns and also pivot the data into long form so that the route number and route name each take up one column instead of having a column for each route number. After this changem the data are tidy, but the original data was not tidy.
+The dataset contains information about nyc subway lines. Specifically, one row of the original data set corresponds to one exit in a given station. The line and station name correspond to the specific station on a given line. The route# columns show which trains travel to a given station. The latitude and longitude columns show the specific location of each exit / entrance. We also have other variables such as entrance type and entry yes vs no, which give details about entrance to each station. I did a lot of cleaning with the data to remove unnecessary columns and also pivot the data into long form so that the route number and route name each take up one column instead of having a column for each route number. After this change the data are tidy, but the original data was not tidy.
 
 ## Answer the following questions using these data:
 
@@ -88,6 +89,70 @@ total_A_ada = nyc_t_df |>
 
 paste0("We have ", total_A_ada, " ADA compliant stations that serve the A train.")
 ```
+
+
+
+# Question 2:
+## Read and clean the Mr. Trash Wheel sheet:
+
+### specify the sheet in the Excel file and to omit non-data entries (rows with notes / figures; columns containing notes) using arguments in read_excel
+### use reasonable variable names
+### omit rows that do not include dumpster-specific data
+### round the number of sports balls to the nearest integer and converts the result to an integer variable (using as.integer)
+### Use a similar process to import, clean, and organize the data for Professor Trash Wheel and Gwynnda, and combine this with the Mr. Trash Wheel dataset to produce a single tidy dataset. To keep track of which Trash Wheel is which, you may need to add an additional variable to both datasets before combining
+
+```{r}
+# Load and process individual data sets:
+mr_trash_df = readxl::read_xlsx("data/202509 Trash Wheel Collection Data.xlsx", sheet = "Mr. Trash Wheel", skip = 1) |> 
+  janitor::clean_names() |> 
+  filter(!is.na(dumpster)) |> 
+  select(-c("x15", "x16")) |> 
+  mutate(sports_balls = as.integer(round(sports_balls)),
+         wheel = "mr")
+
+prof_trash_df = readxl::read_xlsx("data/202509 Trash Wheel Collection Data.xlsx", sheet = "Professor Trash Wheel", skip = 1) |> 
+  janitor::clean_names() |> 
+  filter(!is.na(dumpster)) |> 
+  mutate(wheel = "professor",
+         year = as.character(year))
+
+gwynnda_trash_df = readxl::read_xlsx("data/202509 Trash Wheel Collection Data.xlsx", sheet = "Gwynns Falls Trash Wheel", skip = 1) |> 
+  janitor::clean_names() |> 
+  filter(!is.na(dumpster)) |> 
+  mutate(wheel = "gwynnda",
+         year = as.character(year))
+
+# Merge into one tidy df:
+tidy_trash_df = bind_rows(mr_trash_df, prof_trash_df) |> 
+  bind_rows(gwynnda_trash_df)
+  
+```
+
+
+### Write a paragraph about these data; you are encouraged to use inline R. Be sure to note the number of observations in the resulting dataset, and give examples of key variables. 
+
+This data frame provides information about the trash collected by rotating trash wheels on specific days at three locations of trash wheel in Baltimore, MD. The total data frame has 1,188 observations. We have notable variables including the date of the trash collection, weight (in tons) of the total trash collected on a given day, number of plastic bottles collected, number of cigarette butts, and othe trash-specific information for each site.
+
+### For available data, what was the total weight of trash collected by Professor Trash Wheel? What was the total number of cigarette butts collected by Gwynnda in June of 2022?
+```{r}
+# Total weight for professor:
+professor_weight = tidy_trash_df |> 
+  filter(wheel == "professor") |> 
+  select(weight_tons) |> 
+  summarize(total_weight = sum(weight_tons)) |> 
+  pull()
+
+paste0("Professor Trash Wheel collected ", professor_weight, " tons of trash.")
+
+# Total cigarette butts for Gwynnda in June 2022:
+gwynnda_cig = tidy_trash_df |> 
+  filter(wheel == "gwynnda", month == "June", year == "2022") |>
+  summarize(total_butts = sum(cigarette_butts)) |> 
+  pull()
+
+paste0("Gwynnda collected ", gwynnda_cig, " cigarette butts in June 2022.")
+```
+
 
 
 
