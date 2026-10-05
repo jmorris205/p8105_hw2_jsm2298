@@ -154,5 +154,144 @@ paste0("Gwynnda collected ", gwynnda_cig, " cigarette butts in June 2022.")
 ```
 
 
+# Question 3:
+## Import, clean, and tidy the dataset of baseline demographics. Ensure that sex and APOE4 carrier status are appropriate encoded (i.e. not numeric), and remove any participants who do not meet the stated inclusion criteria (i.e. no MCI at baseline). 
+```{r}
+# Import and clean data:
+mci_baseline_df <- read_csv("data/data_mci/MCI_baseline.csv", skip = 1, na = c(".", "NA")) |> # Step 1
+  janitor::clean_names() |> # Step 2
+  mutate(
+    sex = as.factor(recode_values(sex, # Step 3
+                     1 ~ "male",
+                     0 ~ "female")),
+    apoe4 = as.factor(recode_values(apoe4,
+                     1 ~ "carrier",
+                     0 ~ "non-carrier"
+                                 )),
+    include = # Step 4
+      case_when( 
+      age_at_onset > current_age ~ TRUE,
+      is.na(age_at_onset) ~ TRUE,
+      TRUE ~ FALSE
+    )) |> 
+  filter(include) |> 
+  select(-c("include"))
+  
+```
+## Discuss important steps in the import process and relevant features of the dataset. 
+There were four major important steps in the data cleaning process. First, we had to load the data set, skip the first column where variable info was coded, and then properly flag NA values that were coded with a period. Second, we had to clean the names of the data frame so they appeared in a common format. Third, we re-coded the sex and APOE4 variables as factors based on the coding specified in the first column. Lastly, I created a new variable to indicate whether a person had an MCI onset age younger than their baseline age, and removed the corresponding participants that didn't pass exclusion criteria. The dataset includes baseline covariate information such as sex, the age at baseline, education status, and whether a person was a carrier of apoe4. We also have data on the age a person developed mild cognitive impairment.
+
+## How many participants were recruited, and of these how many develop MCI?
+```{r}
+mci_included <- mci_baseline_df |> 
+  unique() |> 
+  summarize(n()) |> 
+  pull()
+
+paste0("There were ", mci_included, " participants recruited at baseline.")
+
+mci_developed <- mci_baseline_df |> 
+  filter(!is.na(age_at_onset)) |> 
+  unique() |> 
+  summarize(n()) |> 
+  pull()
+
+paste0("There were ", mci_developed, " participants that developed MCI out of ", mci_included, " participants recruited.")
+```
+## What is the average baseline age? 
+```{r}
+baseline_age <- mci_baseline_df |> 
+  unique() |> 
+  summarize(mean(current_age, na.rm = T)) |> 
+  pull()
+
+paste0("The average baseline age was ", round(baseline_age, 2)," years.")
+```
+
+
+## What proportion of women in the study are APOE4 carriers?
+## What is the average baseline age? 
+```{r}
+# Get total number of women in study:
+total_f <- mci_baseline_df |> 
+  filter(sex == "female") |> 
+  unique() |> 
+  summarize(n()) |> 
+  pull()
+
+# Get percentage of women carrying APOE4:
+percentage_f <- mci_baseline_df |> 
+  filter(sex == "female") |> 
+  unique() |> 
+  group_by(apoe4) |> 
+  summarize(percentage = (n() / total_f)*100) |> 
+  pull()
+
+paste0(percentage_f[1], "% of women in the study are APOE4 carriers.")
+```
+
+## Similarly, import, clean, and tidy the dataset of longitudinally observed biomarker values; comment on the steps on the import process and the features of the dataset.
+```{r}
+mci_amyloid_df = read_csv("data/data_mci/mci_amyloid.csv", skip = 1, na = c("Na", "NA")) |> 
+  janitor::clean_names() |> 
+  pivot_longer(cols = c("baseline", contains("time")),
+               names_to = "time",
+               values_to = "amyloid_ratio") |> 
+  rename(id = study_id) |> 
+  mutate(
+    time = as.numeric(case_when(
+      time == "baseline" ~ 0,
+      time == "time_2" ~ 2,
+      time == "time_4" ~ 4,
+      time == "time_6" ~ 6,
+      time == "time_8" ~ 8
+    )),
+    amyloid_ratio = as.numeric(amyloid_ratio)
+  )
+```
+This dataset had similar cleaning steps to the baseline data set. We had to load the data with read_csv, skip the first line, and then filter out NA values coded as "Na". Then we cleaned the names of the columns. I decided to pivot the data into long form to make it tidy by creating two columns, one to represent the time point (previously encoded in the column title), and another to represnt the amyloid ratio at a given time. I then used case_when to recode the time variable as numeric to represent the years since baseline. I also re-coded the amyloid ratio as numeric rather than categorical. Now the dataset has only three columns, one represnting the subject ID, and another representing the year of amyloid measurement since baseline. The alst column represents the amyloid ratio.
+
+## Check whether some participants appear in only the baseline or amyloid datasets, and comment on your findings.
+
+```{r}
+# Create data frames with participant values:
+baseline_pp <- mci_baseline_df |> 
+  select(id) |> 
+  mutate(dataset1 = "baseline")
+
+amyloid_pp <- mci_amyloid_df |> 
+  select(id) |> 
+  unique() |> 
+  mutate(dataset2 = "amyloid")
+
+# Print a data frame with counts of overlap:
+baseline_pp |> 
+  full_join(amyloid_pp, by = "id") |> 
+  mutate(membership = 
+           case_when(
+             (dataset1 == "baseline") & (dataset2 == "amyloid") ~ "both",
+             is.na(dataset1) & (dataset2 == "amyloid") ~ "amyloid",
+             (dataset1 == "baseline") & is.na(dataset2) ~ "baseline"
+           )) |> 
+  select(membership) |> 
+  group_by(membership) |> 
+  summarize(n = n())
+```
+
+The findings above indicate that we have a noticeable number of participants with either only data in the amyloid dataset or only in the baseline dataset. Overall correspondence between datasets is relatively high at 471 participants.
+
+## Combine the demographic and biomarker datasets so that only participants who appear in both datasets are retained, and briefly describe the resulting dataset.
+```{r}
+baseline_amyloid_df  <- mci_baseline_df |> 
+  inner_join(mci_amyloid_df, by = "id")
+
+baseline_amyloid_df
+```
+The resulting dataset has baseline covariates alongside amyloid ratio measurements at each time point (years after baseline) of the study. Because the data are in long form, we have repeated covariates for each subject based on the repeated time points of amyloid ratio measurement.
+
+## Export the result as a CSV to your data directory.
+```{r}
+write_csv(baseline_amyloid_df, "data/baseline_amyloid_df.csv")
+```
 
 
