@@ -103,20 +103,21 @@ paste0("We have ", total_A_ada, " ADA compliant stations that serve the A train.
 
 ```{r}
 # Load and process individual data sets:
-mr_trash_df = readxl::read_xlsx("data/202509 Trash Wheel Collection Data.xlsx", sheet = "Mr. Trash Wheel", skip = 1) |> 
+mr_trash_df = readxl::read_xlsx("data/202610 Trash Wheel Collection Data.xlsx", sheet = "Mr. Trash Wheel", skip = 1) |> 
   janitor::clean_names() |> 
   filter(!is.na(dumpster)) |> 
   select(-c("x15", "x16")) |> 
   mutate(sports_balls = as.integer(round(sports_balls)),
          wheel = "mr")
 
-prof_trash_df = readxl::read_xlsx("data/202509 Trash Wheel Collection Data.xlsx", sheet = "Professor Trash Wheel", skip = 1) |> 
+prof_trash_df = readxl::read_xlsx("data/202610 Trash Wheel Collection Data.xlsx", sheet = "Professor Trash Wheel", skip = 1) |> 
   janitor::clean_names() |> 
   filter(!is.na(dumpster)) |> 
   mutate(wheel = "professor",
-         year = as.character(year))
+         year = as.character(year),
+         plastic_bottles = as.numeric(plastic_bottles))
 
-gwynnda_trash_df = readxl::read_xlsx("data/202509 Trash Wheel Collection Data.xlsx", sheet = "Gwynns Falls Trash Wheel", skip = 1) |> 
+gwynnda_trash_df = readxl::read_xlsx("data/202610 Trash Wheel Collection Data.xlsx", sheet = "Gwynnda the Good Wheel of the W", skip = 1) |> 
   janitor::clean_names() |> 
   filter(!is.na(dumpster)) |> 
   mutate(wheel = "gwynnda",
